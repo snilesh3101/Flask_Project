@@ -13,6 +13,7 @@ Open:  http://127.0.0.1:5000
 Data is stored in office.db (SQLite) next to this file and is created
 automatically with sample data on first run.
 """
+import hmac
 import io
 import os
 import random
@@ -24,13 +25,13 @@ import matplotlib
 matplotlib.use("Agg")  # draw charts without a display window
 import matplotlib.pyplot as plt
 from flask import (Flask, Response, abort, g, redirect, render_template,
-                   request, url_for)
+                   request, session, url_for)
 from jinja2 import DictLoader
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "office.db")
 CATEGORIES = ["Rent", "Utilities", "Internet", "Supplies", "Travel",
               "Maintenance", "Software", "Other"]
-DEPARTMENTS = ["Engineering", "Sales", "HR", "Finance", "Operations"]
+DEPARTMENTS = ["Field", "Sales", "HR", "Finance", "Operations"]
 
 # Chart colours (same palette as the page)
 INK, TEAL, AMBER = "#1f2933", "#0f766e", "#c2410c"
@@ -38,7 +39,9 @@ PALETTE = ["#0f766e", "#c2410c", "#4f6d7a", "#b08900", "#7a5c8e",
            "#2f855a", "#9a3412", "#64748b"]
 
 app = Flask(__name__)
-
+app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret")
+ADMIN_USER = os.environ.get("ADMIN_USER", "Riddhi")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Riddhi@2026")
 
 # --------------------------------------------------------------------------
 # Database
@@ -502,14 +505,50 @@ def chart_attendance_pct(ax):
 
 CHARTS.update({"att_daily": chart_attendance_daily, "att_pct": chart_attendance_pct})
 
+# --------------------------------------------------------------------------
+# Login
+# --------------------------------------------------------------------------
+@app.before_request
+def require_login():
+    if request.endpoint in ("login", "static"):
+        return
+    if not session.get("user"):
+        return redirect(url_for("login", next=request.path))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        u = request.form.get("username", "").strip()
+        p = request.form.get("password", "")
+        ok_u = hmac.compare_digest(u.encode(), ADMIN_USER.encode())
+        ok_p = hmac.compare_digest(p.encode(), ADMIN_PASSWORD.encode())
+        if ok_u and ok_p:
+            session.clear()
+            session["user"] = u
+            nxt = request.args.get("next", "")
+            if not nxt.startswith("/") or nxt.startswith("//"):
+                nxt = url_for("home")
+            return redirect(nxt)
+        error = "Wrong username or password."
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
 
 # --------------------------------------------------------------------------
 # Templates (kept in this file so the project is a single script)
 # --------------------------------------------------------------------------
+
 BASE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Office Management</title>
+<title>Riddhi Enterprises</title>
 <style>
   :root { --ink:#1f2933; --muted:#667085; --paper:#f3f4f1; --card:#fff;
           --line:#dde1e5; --teal:#0f766e; --amber:#c2410c; }
@@ -564,13 +603,14 @@ BASE = """<!doctype html>
 </style></head>
 <body>
 <header>
-  <h1>Riddhi Enterprises Office</h1>
+  <h1>Riddhi Enterprises</h1>
   <nav>
     <a href="{{ url_for('home') }}" class="{{ 'active' if tab=='home' }}">Home</a>
     <a href="{{ url_for('salaries') }}" class="{{ 'active' if tab=='salaries' }}">Employees &amp; salaries</a>
     <a href="{{ url_for('attendance') }}" class="{{ 'active' if tab=='attendance' }}">Attendance</a>
     <a href="{{ url_for('payroll') }}" class="{{ 'active' if tab=='payroll' }}">Payroll</a>
     <a href="{{ url_for('expenses') }}" class="{{ 'active' if tab=='expenses' }}">Office expenses</a>
+    <a href="{{ url_for('logout') }}" style="float:right">Logout</a>
   </nav>
 </header>
 <main>{% block body %}{% endblock %}</main>
@@ -585,6 +625,7 @@ HOME = """{% extends 'base.html' %}{% block body %}
   <div class="kpi warm"><div><small>{{ month_name }} office expenses</small><b>{{ this_month|inr }}</b></div></div>
   <div class="kpi"><div><small>Present today</small><b>{{ present_today }} of {{ n_emp }}</b></div></div>
 </div>
+
 <div class="grid">
   <div class="cell"><div><img src="{{ url_for('chart', name='monthly') }}" alt="Monthly payroll and expenses"></div></div>
   <div class="cell"><div><img src="{{ url_for('chart', name='categories') }}" alt="Expenses by category"></div></div>
@@ -734,11 +775,45 @@ PAYROLL = """{% extends 'base.html' %}{% block body %}
 </table>
 {% endblock %}"""
 
+LOGIN = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login - Riddhi Enterprises</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:#f3f4f1; color:#1f2933;
+         font:15px/1.5 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .box { background:#fff; border:1px solid #dde1e5; border-top:3px solid #0f766e;
+         border-radius:6px; padding:28px; width:100%; max-width:360px; }
+  h1 { margin:0 0 4px; font-size:20px; }
+  p.sub { margin:0 0 18px; color:#667085; }
+  label { display:block; font-size:13px; color:#667085; margin-bottom:12px; }
+  input { width:100%; padding:9px 10px; border:1px solid #b8c0c8; border-radius:5px;
+          font:inherit; margin-top:4px; }
+  button { width:100%; padding:10px; border:0; border-radius:5px; background:#0f766e;
+           color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+  .err { background:#fdecea; border:1px solid #f5c2bd; color:#9a3412; padding:8px 12px;
+         border-radius:6px; margin-bottom:14px; font-size:14px; }
+</style></head>
+<body>
+  <form class="box" method="post">
+    <h1>Riddhi Enterprises</h1>
+    <p class="sub">Sign in to continue</p>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <label>Username<input name="username" autofocus required></label>
+    <label>Password<input name="password" type="password" required></label>
+    <button type="submit">Sign in</button>
+  </form>
+</body></html>"""
+
 app.jinja_loader = DictLoader({"base.html": BASE, "home.html": HOME,
                                "salaries.html": SALARIES, "expenses.html": EXPENSES,
-                               "attendance.html": ATTENDANCE, "payroll.html": PAYROLL})
+                               "attendance.html": ATTENDANCE, "payroll.html": PAYROLL,
+                               "login.html": LOGIN})
+
+init_db()
 
 if __name__ == "__main__":
-    init_db()
     print("Office Manager running at http://127.0.0.1:5000  (Ctrl+C to stop)")
     app.run(debug=False)
