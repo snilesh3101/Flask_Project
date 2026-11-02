@@ -897,7 +897,7 @@ LOGIN = r"""
 
 <img
     src="{{ url_for('static', filename='images/logo.png') }}"
-    alt="Riddhi Enterprises"
+    alt="Riddhi Enterprises Logo"
     style="width:190px; height:190px; object-fit:contain; display:block; margin:auto;"
 >
 
