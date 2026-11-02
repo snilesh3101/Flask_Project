@@ -775,37 +775,179 @@ PAYROLL = """{% extends 'base.html' %}{% block body %}
 </table>
 {% endblock %}"""
 
-LOGIN = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Login - Riddhi Enterprises</title>
-<style>
-  * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-         background:#f3f4f1; color:#1f2933;
-         font:15px/1.5 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-  .box { background:#fff; border:1px solid #dde1e5; border-top:3px solid #0f766e;
-         border-radius:6px; padding:28px; width:100%; max-width:360px; }
-  h1 { margin:0 0 4px; font-size:20px; }
-  p.sub { margin:0 0 18px; color:#667085; }
-  label { display:block; font-size:13px; color:#667085; margin-bottom:12px; }
-  input { width:100%; padding:9px 10px; border:1px solid #b8c0c8; border-radius:5px;
-          font:inherit; margin-top:4px; }
-  button { width:100%; padding:10px; border:0; border-radius:5px; background:#0f766e;
-           color:#fff; font:inherit; font-weight:600; cursor:pointer; }
-  .err { background:#fdecea; border:1px solid #f5c2bd; color:#9a3412; padding:8px 12px;
-         border-radius:6px; margin-bottom:14px; font-size:14px; }
-</style></head>
+
+LOGIN = r"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riddhi Enterprises | Login</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #071d32, #123d55);
+            padding: 20px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 410px;
+            background: #ffffff;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .logo {
+            width: 190px;
+            height: 190px;
+            object-fit: contain;
+            margin-bottom: 12px;
+            border-radius: 8px;
+        }
+
+        h2 {
+            color: #123d55;
+            font-size: 23px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #777;
+            font-size: 14px;
+            margin-bottom: 28px;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #d5dce2;
+            border-radius: 7px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #008b99;
+            box-shadow: 0 0 0 2px rgba(0,139,153,0.12);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 7px;
+            background: #008b99;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            background: #006e7b;
+        }
+
+        .error {
+            color: #c62828;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+
+        .footer {
+            margin-top: 25px;
+            color: #999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
 <body>
-  <form class="box" method="post">
-    <h1>Riddhi Enterprises</h1>
-    <p class="sub">Sign in to continue</p>
-    {% if error %}<div class="err">{{ error }}</div>{% endif %}
-    <label>Username<input name="username" autofocus required></label>
-    <label>Password<input name="password" type="password" required></label>
-    <button type="submit">Sign in</button>
-  </form>
-</body></html>"""
+    <div class="login-card">
+
+        <img
+            src="{{ url_for('static', filename='images/logo.png') }}"
+            alt="Riddhi Enterprises Logo"
+            class="logo"
+        >
+
+        <h2>Welcome Back!</h2>
+        <p class="subtitle">Sign in to Riddhi Enterprises Office Management</p>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="error">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+
+            <div class="form-group">
+                <label>Username</label>
+                <input
+                    type="text"
+                    name="username"
+                    placeholder="Enter your username"
+                    required
+                    autocomplete="username"
+                >
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <button type="submit">Login to Dashboard</button>
+
+        </form>
+
+        <div class="footer">
+            © 2026 Riddhi Enterprises. All Rights Reserved.
+        </div>
+
+    </div>
+</body>
+</html>
+"""
 
 app.jinja_loader = DictLoader({"base.html": BASE, "home.html": HOME,
                                "salaries.html": SALARIES, "expenses.html": EXPENSES,
