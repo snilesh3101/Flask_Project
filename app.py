@@ -603,7 +603,7 @@ BASE = """<!doctype html>
 </style></head>
 <body>
 <header>
-  <h1>Riddhi Enterprises</h1>
+  <h1>Welcome Riddhi Enterprises!!!</h1>
   <nav>
     <a href="{{ url_for('home') }}" class="{{ 'active' if tab=='home' }}">Home</a>
     <a href="{{ url_for('salaries') }}" class="{{ 'active' if tab=='salaries' }}">Employees &amp; salaries</a>
