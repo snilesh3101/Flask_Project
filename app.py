@@ -27,6 +27,8 @@ import matplotlib.pyplot as plt
 from flask import (Flask, Response, abort, g, redirect, render_template,
                    request, session, url_for)
 from jinja2 import DictLoader
+from flask import send_from_directory
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "office.db")
 CATEGORIES = ["Rent", "Utilities", "Internet", "Supplies", "Travel",
@@ -505,12 +507,15 @@ def chart_attendance_pct(ax):
 
 CHARTS.update({"att_daily": chart_attendance_daily, "att_pct": chart_attendance_pct})
 
+@app.route("/logo.png")
+def logo():
+    return send_from_directory(BASE_DIR, "logo.png")
 # --------------------------------------------------------------------------
 # Login
 # --------------------------------------------------------------------------
 @app.before_request
 def require_login():
-    if request.endpoint in ("login", "static"):
+    if request.endpoint in ("login", "static", "logo"):
         return
     if not session.get("user"):
         return redirect(url_for("login", next=request.path))
@@ -896,7 +901,7 @@ LOGIN = r"""
     <div class="login-card">
 
 <img
-    src="{{ url_for('static', filename='images/logo.png') }}"
+    src="{{ url_for('logo') }}"
     alt="Riddhi Enterprises Logo"
     style="width:190px; height:190px; object-fit:contain; display:block; margin:auto;"
 >
