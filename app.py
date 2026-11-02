@@ -896,7 +896,7 @@ LOGIN = r"""
     <div class="login-card">
 
 <img
-    src="{{ url_for('static', filename='images/logo.png') }}"
+    src="{{ url_for('static', filename='logo.png') }}"
     alt="Riddhi Enterprises Logo"
     style="width:190px; height:190px; object-fit:contain; display:block; margin:auto;"
 >
