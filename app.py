@@ -949,6 +949,7 @@ LOGIN = r"""
 </html>
 """
 
+
 app.jinja_loader = DictLoader({"base.html": BASE, "home.html": HOME,
                                "salaries.html": SALARIES, "expenses.html": EXPENSES,
                                "attendance.html": ATTENDANCE, "payroll.html": PAYROLL,
