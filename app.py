@@ -42,6 +42,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret")
 ADMIN_USER = os.environ.get("ADMIN_USER", "Riddhi")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Riddhi@2026")
+from flask import send_from_directory
+
+@app.route("/logo.png")
+def logo():
+    return send_from_directory(".", "logo.png", mimetype="image/png")
 
 # --------------------------------------------------------------------------
 # Database
@@ -895,8 +900,7 @@ LOGIN = r"""
 <body>
     <div class="login-card">
 
-        <img
-            src="{{ url_for('static', filename='images/logo.png') }}"
+       <img src="{{ url_for('logo') }}" alt="Riddhi Enterprises Logo" class="logo">
             alt="Riddhi Enterprises Logo"
             class="logo"
         >
