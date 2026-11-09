@@ -16,8 +16,8 @@ automatically with sample data on first run.
 import hmac
 import io
 import os
-import random
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from datetime import date, timedelta
 
 import matplotlib
@@ -30,7 +30,6 @@ from jinja2 import DictLoader
 from flask import send_from_directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "office.db")
 CATEGORIES = ["Rent", "Utilities", "Internet", "Supplies", "Travel",
               "Maintenance", "Software", "Other"]
 DEPARTMENTS = ["Field", "Sales", "HR", "Finance", "Operations"]
@@ -41,17 +40,36 @@ PALETTE = ["#0f766e", "#c2410c", "#4f6d7a", "#b08900", "#7a5c8e",
            "#2f855a", "#9a3412", "#64748b"]
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret")
-ADMIN_USER = os.environ.get("ADMIN_USER", "Riddhi")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Riddhi@2026")
+app.secret_key = os.environ["SECRET_KEY"]
+ADMIN_USER = os.environ["ADMIN_USER"]
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 # --------------------------------------------------------------------------
 # Database
 # --------------------------------------------------------------------------
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+
+class DB:
+    """Small wrapper so the rest of the app can keep using db.execute(...)."""
+    def __init__(self, conn):
+        self.conn = conn
+
+    def execute(self, sql, params=None):
+        cur = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(sql.replace("?", "%s"), params or None)
+        return cur
+
+    def commit(self):
+        self.conn.commit()
+
+    def close(self):
+        self.conn.close()
+
+
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        g.db = DB(psycopg2.connect(DATABASE_URL))
     return g.db
 
 
@@ -63,75 +81,25 @@ def close_db(_exc):
 
 
 def init_db():
-    db = sqlite3.connect(DB_PATH)
-    db.executescript("""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS employees(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL, department TEXT NOT NULL, role TEXT NOT NULL,
-            monthly_salary REAL NOT NULL, join_date TEXT NOT NULL);
+            monthly_salary DOUBLE PRECISION NOT NULL, join_date TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS expenses(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             date TEXT NOT NULL, category TEXT NOT NULL,
-            description TEXT NOT NULL, amount REAL NOT NULL);
+            description TEXT NOT NULL, amount DOUBLE PRECISION NOT NULL);
         CREATE TABLE IF NOT EXISTS attendance(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             employee_id INTEGER NOT NULL, date TEXT NOT NULL, status TEXT NOT NULL,
             UNIQUE(employee_id, date));
     """)
-    if db.execute("SELECT COUNT(*) FROM employees").fetchone()[0] == 0:
-        today = date.today()
-        staff = [
-            ("Aarav Mehta", "Engineering", "Senior Developer", 95000, 900),
-            ("Diya Nair", "Engineering", "Developer", 68000, 600),
-            ("Rohan Kulkarni", "Engineering", "QA Engineer", 52000, 420),
-            ("Sneha Iyer", "Sales", "Sales Manager", 78000, 1100),
-            ("Vikram Shah", "Sales", "Sales Executive", 45000, 300),
-            ("Priya Deshmukh", "HR", "HR Manager", 72000, 1300),
-            ("Karan Malhotra", "Finance", "Accountant", 58000, 800),
-            ("Isha Patil", "Finance", "Finance Analyst", 54000, 200),
-            ("Manoj Pawar", "Operations", "Office Admin", 36000, 1500),
-            ("Neha Joshi", "Operations", "Front Desk", 30000, 150),
-        ]
-        db.executemany(
-            "INSERT INTO employees(name,department,role,monthly_salary,join_date)"
-            " VALUES(?,?,?,?,?)",
-            [(n, d, r, s, (today - timedelta(days=ago)).isoformat())
-             for n, d, r, s, ago in staff])
-
-        random.seed(7)
-        base = {"Rent": (85000, 0), "Utilities": (14000, 3000),
-                "Internet": (6500, 0), "Supplies": (9000, 4000),
-                "Travel": (12000, 9000), "Maintenance": (7000, 5000),
-                "Software": (18000, 2500), "Other": (4000, 2500)}
-        rows = []
-        for back in range(5, -1, -1):          # last 6 months
-            y, m = today.year, today.month - back
-            while m <= 0:
-                y, m = y - 1, m + 12
-            for cat, (fixed, var) in base.items():
-                amt = fixed + random.randint(-var, var) if var else fixed
-                day = min(28, random.randint(1, 27))
-                rows.append((date(y, m, day).isoformat(), cat,
-                             f"{cat} - {date(y, m, 1):%b %Y}", amt))
-        db.executemany(
-            "INSERT INTO expenses(date,category,description,amount) VALUES(?,?,?,?)",
-            rows)
-    if db.execute("SELECT COUNT(*) FROM attendance").fetchone()[0] == 0:
-        random.seed(11)
-        today = date.today()
-        ids = [r[0] for r in db.execute("SELECT id FROM employees")]
-        rows = []
-        for back in range(0, 75):
-            d = today - timedelta(days=back)
-            if d.weekday() >= 5:
-                continue
-            for emp_id in ids:
-                st = random.choices(["Present", "Half Day", "Leave", "Absent"],
-                                    weights=[89, 4, 4, 3])[0]
-                rows.append((emp_id, d.isoformat(), st))
-        db.executemany("INSERT INTO attendance(employee_id,date,status) VALUES(?,?,?)", rows)
-    db.commit()
-    db.close()
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 # --------------------------------------------------------------------------
@@ -262,7 +230,12 @@ def chart(name):
     fig, ax = plt.subplots(figsize=(6.2, 3.3), dpi=110)
     fig.patch.set_facecolor("white")
     style_axes(ax)
-    CHARTS[name](ax)
+    try:
+        CHARTS[name](ax)
+    except Exception:
+        ax.clear()
+        ax.axis("off")
+        ax.text(0.5, 0.5, "No data yet", ha="center", va="center", color=INK)
     fig.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format="png")
